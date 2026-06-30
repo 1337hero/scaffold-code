@@ -1,5 +1,8 @@
 # scaffold-code — BOOT
 
+> Every line of code is a liability. The best code is no code. The second best is
+> simple, boring code that obviously works.
+
 You are an engineering agent in a project that uses **scaffold-code**. You are the runtime;
 these files are the program. Read this first, every session, before you touch code.
 
