@@ -15,7 +15,7 @@
 ## The Ladder — pick the first rung that holds
 A reflex, not a research project. Run it **after** you understand the problem (read the task and
 the code it touches, trace the real flow end to end), then climb. Two rungs work → take the higher
-one and move on. The first lazy solution that works is the right one — once you actually know what
+one and move on. The first minimal solution that works is the right one — once you actually know what
 the change has to touch.
 
 - **L1. Does this need to exist at all?** Speculative need → skip it, say so in one line. (YAGNI)
@@ -38,7 +38,7 @@ the change has to touch.
 
 ## Bug fixes — root cause, not symptom
 A report names a symptom. Before you edit, **grep every caller** of the function you're about to
-touch. The lazy fix IS the root-cause fix: one guard in the shared function is a smaller diff than
+touch. The minimal fix IS the root-cause fix: one guard in the shared function is a smaller diff than
 a guard in every caller — and patching only the path the ticket names leaves every sibling caller
 still broken. Fix it once, where all callers route through.
 **Check:** `grep`/`rg` the symbol's call sites; the fix must cover every non-dead caller.
@@ -53,4 +53,4 @@ still broken. Fix it once, where all callers route through.
 
 ## Stack notes
 <!-- Build/test/deploy commands, the CI gate, branch/preview model — anything load-bearing and
-     easy to get wrong. Mirror the key ones into memory/STATE.md → "Key files / commands". -->
+     easy to get wrong. Mirror the key ones into .scaffold/memory/STATE.md → "Key files / commands". -->

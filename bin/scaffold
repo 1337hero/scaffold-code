@@ -1,0 +1,181 @@
+#!/usr/bin/env bun
+// scaffold — deploy/update the scaffold-code engine into project repos.
+// Engine files (BOOT, cookbook) are stock and overwritten by `update`;
+// rails/ and memory/ are project-owned and never touched.
+// Adapters are NOT copied into projects — `scaffold setup` installs them
+// globally per machine (pi: ~/.pi/agent/extensions, Claude Code: ~/.claude/settings.json).
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const { execSync } = require("child_process");
+
+const HOME_REPO = path.resolve(fs.realpathSync(process.argv[1]), "..", "..");
+const SRC = path.join(HOME_REPO, ".scaffold");
+const ENGINE = [
+  "BOOT.md",
+  "cookbook/orient.md",
+  "cookbook/closeout.md",
+  "cookbook/closeout-check.sh",
+];
+const STATE_TEMPLATES = [
+  "rails/standards.md",
+  "memory/STATE.md",
+  "memory/log/2026-06-29-example-closeout.md.example",
+];
+const REGISTRY = path.join(process.env.HOME, ".config", "scaffold", "projects");
+
+const sh = (cmd, cwd) => {
+  try {
+    return execSync(cmd, { cwd, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return null;
+  }
+};
+const version = () => {
+  const hash = sh("git rev-parse --short HEAD", HOME_REPO) || "unknown";
+  const dirty = sh("git status --porcelain -- .scaffold bin", HOME_REPO) ? "-dirty" : "";
+  return `${hash}${dirty}`;
+};
+const fileHash = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+
+const registered = () =>
+  fs.existsSync(REGISTRY) ? fs.readFileSync(REGISTRY, "utf8").split("\n").filter(Boolean) : [];
+const register = (dir) => {
+  const list = new Set(registered());
+  list.add(dir);
+  fs.mkdirSync(path.dirname(REGISTRY), { recursive: true });
+  fs.writeFileSync(REGISTRY, [...list].join("\n") + "\n");
+};
+
+const copy = (rel, dest, overwrite) => {
+  const to = path.join(dest, ".scaffold", rel);
+  if (!overwrite && fs.existsSync(to)) return false;
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  fs.copyFileSync(path.join(SRC, rel), to);
+  return true;
+};
+
+const stamp = (dest) =>
+  fs.writeFileSync(
+    path.join(dest, ".scaffold", "VERSION"),
+    `${version()} ${new Date().toISOString().slice(0, 10)}\n`,
+  );
+
+function init(dir) {
+  if (fs.existsSync(path.join(dir, ".scaffold", "BOOT.md")))
+    die(`${dir} already has .scaffold/ — use \`scaffold update\``);
+  for (const f of ENGINE) copy(f, dir, true);
+  for (const f of STATE_TEMPLATES) copy(f, dir, false);
+  stamp(dir);
+  register(dir);
+  console.log(`initialized ${dir}/.scaffold (${version()})`);
+  console.log("next: fill .scaffold/rails/standards.md and .scaffold/memory/STATE.md");
+}
+
+function update(dir) {
+  if (!fs.existsSync(path.join(dir, ".scaffold")))
+    die(`${dir} has no .scaffold/ — use \`scaffold init\``);
+  for (const f of ENGINE) copy(f, dir, true);
+  for (const f of STATE_TEMPLATES) copy(f, dir, false); // fill gaps, never overwrite
+  stamp(dir);
+  register(dir);
+  console.log(`updated ${dir}/.scaffold engine (${version()})`);
+  if (fs.existsSync(path.join(dir, ".scaffold", "adapters")))
+    console.log(
+      "warn: legacy .scaffold/adapters/ copy in project — adapters are machine-global now (`scaffold setup`); safe to delete",
+    );
+}
+
+function status(dir) {
+  const scaffoldDir = path.join(dir, ".scaffold");
+  if (!fs.existsSync(scaffoldDir)) die(`${dir} has no .scaffold/`);
+  const vFile = path.join(scaffoldDir, "VERSION");
+  const deployed = fs.existsSync(vFile) ? fs.readFileSync(vFile, "utf8").trim() : "(unstamped)";
+  const drifted = ENGINE.filter((f) => {
+    const to = path.join(scaffoldDir, f);
+    return !fs.existsSync(to) || fileHash(to) !== fileHash(path.join(SRC, f));
+  });
+  const ok = drifted.length === 0;
+  console.log(`${dir}: ${ok ? "in sync" : "DRIFT"} — deployed ${deployed}, canonical ${version()}`);
+  for (const f of drifted) console.log(`  drifted: .scaffold/${f}`);
+  return ok;
+}
+
+function setup() {
+  // pi: global extension
+  const piAgent = path.join(process.env.HOME, ".pi", "agent");
+  if (fs.existsSync(piAgent)) {
+    const extDir = path.join(piAgent, "extensions");
+    fs.mkdirSync(extDir, { recursive: true });
+    fs.copyFileSync(path.join(SRC, "adapters", "pi", "scaffold.ts"), path.join(extDir, "scaffold.ts"));
+    console.log(`pi: installed ${extDir}/scaffold.ts`);
+  } else console.log("pi: ~/.pi/agent not found — skipped");
+
+  // Claude Code: global hooks, guarded on .scaffold/ presence in the project
+  const claudeDir = path.join(process.env.HOME, ".claude");
+  if (!fs.existsSync(claudeDir)) return console.log("claude: ~/.claude not found — skipped");
+  const settingsPath = path.join(claudeDir, "settings.json");
+  const settings = fs.existsSync(settingsPath)
+    ? JSON.parse(fs.readFileSync(settingsPath, "utf8"))
+    : {};
+  const guard = path.join(SRC, "adapters", "claude-code", "guard.js");
+  const guarded = (cmd) =>
+    `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]; then ${cmd}; fi`;
+  const wanted = {
+    SessionStart: [{ hooks: [{ type: "command", command: guarded('cat "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md"') }] }],
+    PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: guarded(`node "${guard}"`) }] }],
+    Stop: [{ hooks: [{ type: "command", command: guarded(`node "${guard}"`) }] }],
+  };
+  settings.hooks = settings.hooks || {};
+  let changed = false;
+  for (const [event, entries] of Object.entries(wanted)) {
+    const existing = settings.hooks[event] || [];
+    // idempotent + self-updating: drop any prior scaffold entry, then add the current one
+    const kept = existing.filter((e) => !JSON.stringify(e).includes(".scaffold/"));
+    settings.hooks[event] = [...kept, ...entries];
+    if (JSON.stringify(existing) !== JSON.stringify(settings.hooks[event])) changed = true;
+  }
+  if (changed) {
+    if (fs.existsSync(settingsPath))
+      fs.copyFileSync(settingsPath, settingsPath + ".bak-scaffold");
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+    console.log(`claude: hooks merged into ${settingsPath} (backup: settings.json.bak-scaffold)`);
+  } else console.log("claude: hooks already current");
+}
+
+function die(msg) {
+  console.error(`scaffold: ${msg}`);
+  process.exit(1);
+}
+
+const [cmd, ...args] = process.argv.slice(2);
+const all = args.includes("--all");
+const dirs = all ? registered() : [path.resolve(args.find((a) => !a.startsWith("--")) || ".")];
+
+switch (cmd) {
+  case "init":
+    init(dirs[0]);
+    break;
+  case "update":
+    dirs.forEach(update);
+    break;
+  case "status": {
+    const ok = dirs.map(status).every(Boolean);
+    process.exit(ok ? 0 : 1);
+  }
+  case "setup":
+    setup();
+    break;
+  case "list":
+    registered().forEach((d) => console.log(d));
+    break;
+  default:
+    console.log(`scaffold — deploy the scaffold-code engine (canonical: ${HOME_REPO})
+
+usage:
+  scaffold init <dir>          set up .scaffold/ in a repo (engine + state templates)
+  scaffold update [<dir>|--all] refresh engine files; never touches rails/ or memory/
+  scaffold status [<dir>|--all] show drift against the canonical engine
+  scaffold setup               install machine-global adapters (pi + Claude Code hooks)
+  scaffold list                registered projects`);
+}

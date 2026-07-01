@@ -9,15 +9,16 @@ these files are the program. Read this first, every session, before you touch co
 ## Precedence — when instructions conflict
 
 platform/system instructions > the user's task > scaffold **hard rails** (below) > project
-**`rails/`** > memory & docs. On a *factual* dispute (what's running, what's deployed, what the
+**`.scaffold/rails/`** > memory & docs. On a *factual* dispute (what's running, what's deployed, what the
 code does), **reality wins** — reconcile and surface the drift, don't pick a side silently. On
 *direction* (what the system is supposed to be), intent wins.
 
 ## The loop
 
-**Session boot — ORIENT (once per session, not per task).** → `cookbook/orient.md`
-Assemble your own context before any work: read `memory/STATE.md`, read `rails/`, skim the
-latest 1–2 entries in `memory/log/`, note the build/test/deploy commands, then grep the code
+**Session boot — ORIENT (once per session, not per task).** → `.scaffold/cookbook/orient.md`
+Assemble your own context before any work: read `.scaffold/memory/STATE.md`, read
+`.scaffold/rails/`, skim the latest 1–2 entries in `.scaffold/memory/log/`, note the
+build/test/deploy commands, then grep the code
 for the area you'll touch. Reconcile against git/CI/reality. Full procedure in the cookbook.
 
 **Per task — FRAME → WORK → REVIEW.**
@@ -40,14 +41,15 @@ that proves the new behavior. Scope to one coherent change.
 - **Batch every unknown before each push** (FK/constraint graph, enum/CHECK values, DOM
   selectors, auth targets) — one un-batched unknown is one wasted CI cycle. Keep the branch green.
 
-**REVIEW** — a real pass, not an attitude. Re-read `rails/standards.md` and grep your diff for
+**REVIEW** — a real pass, not an attitude. Re-read `.scaffold/rails/standards.md` and grep your diff for
 each rule it names; compare the diff against your FRAME (does it match "done means" and the
 scope boundary?). For non-trivial changes, hand the diff to a **fresh-context reviewer** (a
 subagent / new session / `/code-review`) — same-context self-review catches typos, not design drift.
 
-**Session end — CLOSE OUT (once, or when you hand back a question).** → `cookbook/closeout.md`
-Leave it pickup-ready: roll `STATE.md` forward, append a dated `log/` entry, run the closeout
-self-check. **Never stop with code shipped and `STATE.md` silent.**
+**Session end — CLOSE OUT (once, or when you hand back a question).** → `.scaffold/cookbook/closeout.md`
+Leave it pickup-ready: roll `.scaffold/memory/STATE.md` forward, append a dated
+`.scaffold/memory/log/` entry, run the closeout self-check. **Never stop with code shipped and
+`STATE.md` silent.**
 
 ## Hard rails — the floor (project `rails/` build on these)
 
@@ -72,10 +74,15 @@ When you ask, hand a **steer**: the named fork + your recommendation + the reaso
 
 ## Map
 
+All paths are from the **repo root** — everything lives under `.scaffold/`.
+
 | Path | What it is |
 |---|---|
-| `rails/standards.md` | This project's standards — the gates you enforce (each tagged `Check:` or `Judgment:`) |
-| `cookbook/orient.md` | The full session-boot procedure (BOOT summarizes; the cookbook owns the detail) |
-| `cookbook/closeout.md` | The full close-out procedure + the mechanical self-check |
-| `memory/STATE.md` | Living "where the project stands" — read first at ORIENT |
-| `memory/log/` | Dated session closeouts — append-only history |
+| `.scaffold/rails/standards.md` | This project's standards — the gates you enforce (each tagged `Check:` or `Judgment:`) |
+| `.scaffold/cookbook/orient.md` | The full session-boot procedure (BOOT summarizes; the cookbook owns the detail) |
+| `.scaffold/cookbook/closeout.md` | The full close-out procedure + the mechanical self-check |
+| `.scaffold/memory/STATE.md` | Living "where the project stands" — read first at ORIENT |
+| `.scaffold/memory/log/` | Dated session closeouts — append-only history |
+
+(Per-runtime enforcement — the Pi extension and Claude Code hooks — is installed machine-globally
+by the human via `scaffold setup`; you just work.)
