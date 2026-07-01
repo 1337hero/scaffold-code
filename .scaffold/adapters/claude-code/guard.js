@@ -6,6 +6,8 @@ const { execSync } = require("child_process");
 const { readdirSync } = require("fs");
 const { join } = require("path");
 
+if (process.env.SCAFFOLD_OFF === "1") process.exit(0); // explicit human escape hatch
+
 let raw = "";
 process.stdin.on("data", (d) => (raw += d));
 process.stdin.on("end", () => {
@@ -46,6 +48,7 @@ process.stdin.on("end", () => {
 
   if (hook.hook_event_name === "PreToolUse") {
     const cmd = (hook.tool_input && hook.tool_input.command) || "";
+    if (/^\s*SCAFFOLD_OFF=1\s/.test(cmd)) process.exit(0); // visible-in-transcript escape hatch
     if (/\bpush\b/.test(cmd)) {
       const def = defaultBranch();
       const branch = git("rev-parse --abbrev-ref HEAD") || "";

@@ -67,6 +67,7 @@ function logEntryToday(cwd: string): boolean {
 }
 
 export default function (pi: ExtensionAPI) {
+  if (process.env.SCAFFOLD_OFF === "1") return; // explicit human escape hatch
   pi.on("before_agent_start", async (event, ctx) => {
     if (!isScaffoldRepo(ctx.cwd)) return;
     if (event.systemPrompt.includes("scaffold-code — BOOT")) return;
@@ -78,6 +79,7 @@ export default function (pi: ExtensionAPI) {
     if (!isScaffoldRepo(ctx.cwd)) return;
     if (!isToolCallEventType("bash", event)) return;
     const cmd = event.input.command ?? "";
+    if (/^\s*SCAFFOLD_OFF=1\s/.test(cmd)) return; // visible-in-transcript escape hatch
     if (!/\bpush\b/.test(cmd)) return;
     const def = defaultBranch(ctx.cwd);
     const branch = git(ctx.cwd, "rev-parse --abbrev-ref HEAD") ?? "";
