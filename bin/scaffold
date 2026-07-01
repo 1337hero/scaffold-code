@@ -62,6 +62,17 @@ const stamp = (dest) =>
   );
 
 function init(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`created ${dir}`);
+  }
+  const top = sh("git rev-parse --show-toplevel", dir);
+  if (!top) {
+    sh("git init", dir);
+    console.log("ran git init — the rails assume a git repo");
+  } else if (fs.realpathSync(top) !== fs.realpathSync(dir)) {
+    die(`.scaffold belongs at the repo root — this is inside ${top}`);
+  }
   if (fs.existsSync(path.join(dir, ".scaffold", "BOOT.md")))
     die(`${dir} already has .scaffold/ — use \`scaffold update\``);
   for (const f of ENGINE) copy(f, dir, true);
