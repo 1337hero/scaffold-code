@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-// scaffold-code guard for Claude Code hooks (PreToolUse + Stop) — reads hook JSON on stdin.
+// scaffold-code guard for Claude Code hooks (SessionStart + PreToolUse + Stop) — reads hook JSON on stdin.
+// SessionStart: records a repo-state baseline so Stop can tell what THIS session changed.
 // PreToolUse(Bash): blocks git push to the default branch.
-// Stop: blocks ending with code changed but closeout incomplete (STATE roll + dated log entry).
+// Stop: blocks ending with code changed this session but closeout incomplete (STATE roll + dated log entry).
 const { execSync } = require("child_process");
-const { readdirSync } = require("fs");
+const { readdirSync, readFileSync, writeFileSync, existsSync } = require("fs");
 const { join } = require("path");
+const { tmpdir } = require("os");
 
 if (process.env.SCAFFOLD_OFF === "1") process.exit(0); // explicit human escape hatch
 
@@ -46,6 +48,27 @@ process.stdin.on("end", () => {
     return false;
   };
 
+  // not via git(): its trim() would eat the leading space of the first "XY path" line
+  const porcelain = () => {
+    try {
+      return execSync("git status --porcelain", { cwd, stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .split("\n")
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  };
+  const baselinePath = () => hook.session_id && join(tmpdir(), `scaffold-baseline-${hook.session_id}.json`);
+
+  if (hook.hook_event_name === "SessionStart") {
+    // first write wins — a resume/compact restart must not erase what the session already changed
+    const p = baselinePath();
+    if (p && !existsSync(p))
+      writeFileSync(p, JSON.stringify({ head: git("rev-parse HEAD") || "", porcelain: porcelain() }));
+    process.exit(0);
+  }
+
   if (hook.hook_event_name === "PreToolUse") {
     const cmd = (hook.tool_input && hook.tool_input.command) || "";
     if (/^\s*SCAFFOLD_OFF=1\s/.test(cmd)) process.exit(0); // visible-in-transcript escape hatch
@@ -61,14 +84,25 @@ process.stdin.on("end", () => {
   }
 
   if (hook.hook_event_name === "Stop" && !hook.stop_hook_active) {
-    const def = defaultBranch();
+    // "changed this session" = delta from the SessionStart baseline, NOT the branch's diff from
+    // main — prior sessions' unmerged commits are not this session's work. No baseline → no nag.
+    const p = baselinePath();
     let base = null;
-    for (const ref of [`origin/${def}`, def]) {
-      base = git(`merge-base ${ref} HEAD`);
-      if (base) break;
-    }
+    try {
+      base = JSON.parse(readFileSync(p, "utf8"));
+    } catch {}
     if (base) {
-      const changed = (git(`diff --name-only ${base}`) || "").split("\n").filter(Boolean);
+      const files = new Set();
+      const head = git("rev-parse HEAD") || "";
+      if (base.head && head && head !== base.head)
+        for (const f of (git(`diff --name-only ${base.head} HEAD`) || "").split("\n"))
+          if (f) files.add(f);
+      // paths that became dirty this session; a file already dirty at baseline and edited
+      // further is missed — fail-quiet beats a false closeout demand
+      const seen = new Set(base.porcelain || []);
+      for (const line of porcelain())
+        if (!seen.has(line)) files.add(line.slice(3).split(" -> ").pop().replace(/^"|"$/g, ""));
+      const changed = [...files];
       const codeChanged = changed.some((f) => !f.startsWith(".scaffold/"));
       if (codeChanged) {
         const logEntryToday = () => {

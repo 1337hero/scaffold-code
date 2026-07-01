@@ -133,7 +133,11 @@ function setup() {
   const guarded = (cmd) =>
     `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]; then ${cmd}; fi`;
   const wanted = {
-    SessionStart: [{ hooks: [{ type: "command", command: guarded('cat "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md"') }] }],
+    // guard first: it records the session-start baseline that Stop diffs against
+    SessionStart: [{ hooks: [
+      { type: "command", command: guarded(`node "${guard}"`) },
+      { type: "command", command: guarded('cat "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md"') },
+    ] }],
     PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: guarded(`node "${guard}"`) }] }],
     Stop: [{ hooks: [{ type: "command", command: guarded(`node "${guard}"`) }] }],
   };

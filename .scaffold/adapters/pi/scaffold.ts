@@ -26,12 +26,44 @@ function defaultBranch(cwd: string): string {
   return "main";
 }
 
-function sessionBase(cwd: string, def: string): string | null {
-  for (const ref of [`origin/${def}`, def]) {
-    const base = git(cwd, `merge-base ${ref} HEAD`);
-    if (base) return base;
+// session baseline — "changed this session" is measured against repo state at session start,
+// NOT the branch's diff from main (prior sessions' unmerged commits are not this session's work)
+const baselines = new Map<string, { head: string; porcelain: Set<string> }>();
+
+// not via git(): its trim() would eat the leading space of the first "XY path" line
+function porcelain(cwd: string): Set<string> {
+  try {
+    return new Set(
+      execSync("git status --porcelain", { cwd, stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .split("\n")
+        .filter(Boolean),
+    );
+  } catch {
+    return new Set();
   }
-  return null;
+}
+
+function captureBaseline(cwd: string): void {
+  if (baselines.has(cwd)) return;
+  baselines.set(cwd, { head: git(cwd, "rev-parse HEAD") ?? "", porcelain: porcelain(cwd) });
+}
+
+// commits made this session + paths that became dirty this session; a file already dirty at
+// baseline and edited further is missed — fail-quiet beats a false closeout demand
+function sessionChangedFiles(cwd: string): string[] {
+  const base = baselines.get(cwd);
+  if (!base) return [];
+  const files = new Set<string>();
+  const head = git(cwd, "rev-parse HEAD") ?? "";
+  if (base.head && head && head !== base.head) {
+    for (const f of (git(cwd, `diff --name-only ${base.head} HEAD`) ?? "").split("\n"))
+      if (f) files.add(f);
+  }
+  for (const line of porcelain(cwd)) {
+    if (!base.porcelain.has(line)) files.add(line.slice(3).split(" -> ").pop()!.replace(/^"|"$/g, ""));
+  }
+  return [...files];
 }
 
 // token-based, per command segment — "bugfix/main-nav" and prose mentioning "push" don't trip it
@@ -70,6 +102,7 @@ export default function (pi: ExtensionAPI) {
   if (process.env.SCAFFOLD_OFF === "1") return; // explicit human escape hatch
   pi.on("before_agent_start", async (event, ctx) => {
     if (!isScaffoldRepo(ctx.cwd)) return;
+    captureBaseline(ctx.cwd);
     if (event.systemPrompt.includes("scaffold-code — BOOT")) return;
     const boot = readFileSync(join(ctx.cwd, ".scaffold", "BOOT.md"), "utf8");
     return { systemPrompt: `${event.systemPrompt}\n\n${boot}` };
@@ -95,12 +128,7 @@ export default function (pi: ExtensionAPI) {
   let nudged = false;
   pi.on("agent_end", async (_event, ctx) => {
     if (!isScaffoldRepo(ctx.cwd)) return;
-    const def = defaultBranch(ctx.cwd);
-    const base = sessionBase(ctx.cwd, def);
-    if (!base) return;
-    const changed = (git(ctx.cwd, `diff --name-only ${base}`) ?? "")
-      .split("\n")
-      .filter(Boolean);
+    const changed = sessionChangedFiles(ctx.cwd);
     const codeChanged = changed.some((f) => !f.startsWith(".scaffold/"));
     const missing: string[] = [];
     if (!changed.includes(".scaffold/memory/STATE.md"))
