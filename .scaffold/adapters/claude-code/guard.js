@@ -41,11 +41,19 @@ process.stdin.on("end", () => {
       if (g === -1) continue;
       const p = tokens.indexOf("push", g + 1);
       if (p === -1) continue;
-      // any push while sitting on the default branch — switch branches first
-      if (branch === def) return true;
-      if (tokens.slice(p + 1).some((t) => t === def || t.endsWith(`:${def}`))) return true;
+      const rest = tokens.slice(p + 1);
+      if (rest.some((t) => t === def || t.endsWith(`:${def}`))) return true;
+      // an explicit non-default target (remote + ref: branch deletion, other refs) is not a
+      // push to default even from the default branch
+      if (branch === def && rest.filter((t) => !t.startsWith("-")).length < 2) return true;
     }
     return false;
+  };
+  // closeout exemption: outgoing commits that touch ONLY .scaffold/ (memory/log/rails) may land
+  // on the default branch directly — a STATE roll must not cost a branch + PR
+  const scaffoldOnlyOutgoing = (def) => {
+    const files = (git(`diff --name-only origin/${def}...HEAD`) || "").split("\n").filter(Boolean);
+    return files.length > 0 && files.every((f) => f.startsWith(".scaffold/"));
   };
 
   // not via git(): its trim() would eat the leading space of the first "XY path" line
@@ -75,8 +83,8 @@ process.stdin.on("end", () => {
     if (/\bpush\b/.test(cmd)) {
       const def = defaultBranch();
       const branch = git("rev-parse --abbrev-ref HEAD") || "";
-      if (isPushToDefault(cmd, branch, def)) {
-        console.error(`scaffold hard rail: code ships by branch + PR only — never push to ${def}.`);
+      if (isPushToDefault(cmd, branch, def) && !scaffoldOnlyOutgoing(def)) {
+        console.error(`scaffold hard rail: code ships by branch + PR only — never push to ${def}. (.scaffold/-only commits are exempt.)`);
         process.exit(2);
       }
     }
