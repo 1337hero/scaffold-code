@@ -1,12 +1,9 @@
 #!/usr/bin/env node
-// scaffold-code guard for Claude Code hooks (SessionStart + PreToolUse + Stop) — reads hook JSON on stdin.
-// SessionStart: records a repo-state baseline so Stop can tell what THIS session changed.
-// PreToolUse(Bash): blocks git push to the default branch.
-// Stop: blocks ending with code changed this session but closeout incomplete (STATE roll + dated log entry).
+// scaffold-code guard for Claude Code (Stop hook) — reads hook JSON on stdin.
+// Enforcement lives in the environment (git pre-push hook, installed by `scaffold init/update`);
+// this guard carries no rail logic of its own — it only relays the outcome gate
+// (cookbook/closeout-check.sh), blocking a stop while the gate fails.
 const { execSync } = require("child_process");
-const { readdirSync, readFileSync, writeFileSync, existsSync } = require("fs");
-const { join } = require("path");
-const { tmpdir } = require("os");
 
 if (process.env.SCAFFOLD_OFF === "1") process.exit(0); // explicit human escape hatch
 
@@ -17,130 +14,18 @@ process.stdin.on("end", () => {
   try {
     hook = JSON.parse(raw || "{}");
   } catch {}
+  if (hook.hook_event_name !== "Stop" || hook.stop_hook_active) process.exit(0);
   const cwd = hook.cwd || process.cwd();
-  const git = (cmd) => {
-    try {
-      return execSync(`git ${cmd}`, { cwd, stdio: ["ignore", "pipe", "ignore"] })
-        .toString()
-        .trim();
-    } catch {
-      return null;
-    }
-  };
-  const defaultBranch = () => {
-    const ref = git("symbolic-ref -q --short refs/remotes/origin/HEAD");
-    if (ref) return ref.replace(/^origin\//, "");
-    for (const b of ["main", "master"]) if (git(`rev-parse --verify --quiet refs/heads/${b}`)) return b;
-    return "main";
-  };
-  // token-based, per command segment — "bugfix/main-nav" and prose mentioning "push" don't trip it
-  const isPushToDefault = (cmd, branch, def) => {
-    for (const seg of cmd.split(/&&|\|\||[;|\n]/)) {
-      const tokens = seg.trim().split(/\s+/);
-      const g = tokens.indexOf("git");
-      if (g === -1) continue;
-      const p = tokens.indexOf("push", g + 1);
-      if (p === -1) continue;
-      const rest = tokens.slice(p + 1);
-      if (rest.some((t) => t === def || t.endsWith(`:${def}`))) return true;
-      // an explicit non-default target (remote + ref: branch deletion, other refs) is not a
-      // push to default even from the default branch
-      if (branch === def && rest.filter((t) => !t.startsWith("-")).length < 2) return true;
-    }
-    return false;
-  };
-  // closeout exemption: outgoing commits that touch ONLY .scaffold/ (memory/log/rails) may land
-  // on the default branch directly — a STATE roll must not cost a branch + PR
-  const scaffoldOnlyOutgoing = (def) => {
-    const files = (git(`diff --name-only origin/${def}...HEAD`) || "").split("\n").filter(Boolean);
-    return files.length > 0 && files.every((f) => f.startsWith(".scaffold/"));
-  };
-
-  // not via git(): its trim() would eat the leading space of the first "XY path" line
-  const porcelain = () => {
-    try {
-      return execSync("git status --porcelain", { cwd, stdio: ["ignore", "pipe", "ignore"] })
-        .toString()
-        .split("\n")
-        .filter(Boolean);
-    } catch {
-      return [];
-    }
-  };
-  const baselinePath = () => hook.session_id && join(tmpdir(), `scaffold-baseline-${hook.session_id}.json`);
-
-  if (hook.hook_event_name === "SessionStart") {
-    // first write wins — a resume/compact restart must not erase what the session already changed
-    const p = baselinePath();
-    if (p && !existsSync(p))
-      writeFileSync(p, JSON.stringify({ head: git("rev-parse HEAD") || "", porcelain: porcelain() }));
-    process.exit(0);
+  try {
+    execSync("bash .scaffold/cookbook/closeout-check.sh", { cwd, stdio: ["ignore", "pipe", "pipe"] });
+  } catch (e) {
+    const verdict = (e.stdout ? e.stdout.toString().trim() : "") || "closeout check failed";
+    console.log(
+      JSON.stringify({
+        decision: "block",
+        reason: `scaffold closeout gate: ${verdict} — finish closeout (.scaffold/cookbook/closeout.md) before stopping.`,
+      }),
+    );
   }
-
-  if (hook.hook_event_name === "PreToolUse") {
-    const cmd = (hook.tool_input && hook.tool_input.command) || "";
-    if (/^\s*SCAFFOLD_OFF=1\s/.test(cmd)) process.exit(0); // visible-in-transcript escape hatch
-    if (/\bpush\b/.test(cmd)) {
-      const def = defaultBranch();
-      const branch = git("rev-parse --abbrev-ref HEAD") || "";
-      if (isPushToDefault(cmd, branch, def) && !scaffoldOnlyOutgoing(def)) {
-        console.error(`scaffold hard rail: code ships by branch + PR only — never push to ${def}. (.scaffold/-only commits are exempt.)`);
-        process.exit(2);
-      }
-    }
-    process.exit(0);
-  }
-
-  if (hook.hook_event_name === "Stop" && !hook.stop_hook_active) {
-    // "changed this session" = delta from the SessionStart baseline, NOT the branch's diff from
-    // main — prior sessions' unmerged commits are not this session's work. No baseline → no nag.
-    const p = baselinePath();
-    let base = null;
-    try {
-      base = JSON.parse(readFileSync(p, "utf8"));
-    } catch {}
-    if (base) {
-      const files = new Set();
-      const head = git("rev-parse HEAD") || "";
-      if (base.head && head && head !== base.head)
-        for (const f of (git(`diff --name-only ${base.head} HEAD`) || "").split("\n"))
-          if (f) files.add(f);
-      // paths that became dirty this session; a file already dirty at baseline and edited
-      // further is missed — fail-quiet beats a false closeout demand
-      const seen = new Set(base.porcelain || []);
-      for (const line of porcelain())
-        if (!seen.has(line)) files.add(line.slice(3).split(" -> ").pop().replace(/^"|"$/g, ""));
-      const changed = [...files];
-      const codeChanged = changed.some((f) => !f.startsWith(".scaffold/"));
-      if (codeChanged) {
-        const logEntryToday = () => {
-          const top = git("rev-parse --show-toplevel");
-          if (!top) return true;
-          const today = new Date().toLocaleDateString("en-CA");
-          try {
-            return readdirSync(join(top, ".scaffold", "memory", "log")).some(
-              (f) => f.startsWith(today) && f.endsWith(".md"),
-            );
-          } catch {
-            return false;
-          }
-        };
-        const missing = [];
-        if (!changed.includes(".scaffold/memory/STATE.md"))
-          missing.push("roll .scaffold/memory/STATE.md forward");
-        if (!logEntryToday()) missing.push("append a dated .scaffold/memory/log/ entry");
-        if (missing.length) {
-          console.log(
-            JSON.stringify({
-              decision: "block",
-              reason: `Code changed but closeout is incomplete — ${missing.join(" and ")} (.scaffold/cookbook/closeout.md) before stopping.`,
-            }),
-          );
-        }
-      }
-    }
-    process.exit(0);
-  }
-
   process.exit(0);
 });

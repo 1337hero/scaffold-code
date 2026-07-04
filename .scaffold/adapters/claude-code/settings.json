@@ -5,22 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.scaffold/adapters/claude-code/guard.js\""
-          },
-          {
-            "type": "command",
             "command": "cat \"$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md\""
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.scaffold/adapters/claude-code/guard.js\""
           }
         ]
       }
