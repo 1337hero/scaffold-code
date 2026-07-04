@@ -1,88 +1,51 @@
 # scaffold-code — BOOT
 
-> Every line of code is a liability. The best code is no code. The second best is
-> simple, boring code that obviously works.
+> Every line of code is a liability. The best code is no code. The second best is simple,
+> boring code that obviously works.
 
-You are an engineering agent in a project that uses **scaffold-code**. You are the runtime;
-these files are the program. Read this first, every session, before you touch code.
+You are an engineering agent in a project that uses **scaffold-code**. The files under
+`.scaffold/` are this project's memory, standards, and gates — you bring the cognition, they
+bring the continuity. Two imperatives frame every session:
+
+1. **Start by reading `.scaffold/memory/STATE.md`**, then pull what the task needs — the rails,
+   the latest log entries, the code you'll touch. `cookbook/orient.md` describes what exists
+   and why it pays.
+2. **Never stop with work shipped and the memory silent.** Before you finish: roll STATE.md
+   forward, append a dated log entry (`cookbook/closeout.md`), and pass
+   `bash .scaffold/cookbook/closeout-check.sh` — it passes untouched when nothing shipped.
 
 ## Precedence — when instructions conflict
+platform/system instructions > the user's task > hard rails (below) > `.scaffold/rails/` >
+memory & docs. On *facts* (what's running, what the code does), **reality wins** — reconcile
+and surface the drift. On *direction* (what the system is supposed to be), intent wins.
 
-platform/system instructions > the user's task > scaffold **hard rails** (below) > project
-**`.scaffold/rails/`** > memory & docs. On a *factual* dispute (what's running, what's deployed, what the
-code does), **reality wins** — reconcile and surface the drift, don't pick a side silently. On
-*direction* (what the system is supposed to be), intent wins.
-
-## The loop
-
-**Session boot — ORIENT (once per session, not per task).** → `.scaffold/cookbook/orient.md`
-Assemble your own context before any work: read `.scaffold/memory/STATE.md`, read
-`.scaffold/rails/`, skim the latest 1–2 entries in `.scaffold/memory/log/`, note the
-build/test/deploy commands, then grep the code
-for the area you'll touch. Reconcile against git/CI/reality. Full procedure in the cookbook.
-
-**Per task — FRAME → WORK → REVIEW.**
-
-**FRAME** — before you edit, be able to state:
-- **Shape:** fix / feature / review / investigation.
-- **Context loaded:** the STATE facts, rails, log entries, and code loci this depends on.
-- **Done means:** the test/proof or the deliverable that ends it.
-- **Verification:** the cheapest checks that prove it.
-- **Branch point:** none, or the steer you need from the human.
-
-For a **fix**, write the failing test first — see it red *for the right reason*, then make it
-green; a test that never failed proves nothing. (Trivial one-liner? FRAME collapses to
-reproduce → fix → verify.) For a **feature**, build to a stated intent; the proof is a test
-that proves the new behavior. Scope to one coherent change.
-
-**WORK** — implement within the rails.
-- One canonical place for a behavior; reuse before you write; smallest change that works.
-- Test at the cheapest tier that proves it (unit/contract before browser/e2e).
-- **Batch every unknown before each push** (FK/constraint graph, enum/CHECK values, DOM
-  selectors, auth targets) — one un-batched unknown is one wasted CI cycle. Keep the branch green.
-
-**REVIEW** — a real pass, not an attitude. Re-read `.scaffold/rails/standards.md` and grep your diff for
-each rule it names; compare the diff against your FRAME (does it match "done means" and the
-scope boundary?). For non-trivial changes, hand the diff to a **fresh-context reviewer** (a
-subagent / new session / `/code-review`) — same-context self-review catches typos, not design drift.
-
-**Session end — CLOSE OUT (once, or when you hand back a question).** → `.scaffold/cookbook/closeout.md`
-Leave it pickup-ready: roll `.scaffold/memory/STATE.md` forward, append a dated
-`.scaffold/memory/log/` entry, run the closeout self-check. **Never stop with code shipped and
-`STATE.md` silent.**
-
-## Hard rails — the floor (project `rails/` build on these)
-
-- **Code changes ship by branch + PR only. Never push to main. Never self-merge.** (Read-only
-  review, local diagnosis, and throwaway spikes are exempt — they ship nothing.)
+## Hard rails — the floor
+- **Code ships by branch + PR only. Never push to the default branch. Never self-merge.**
+  (Backed by a git pre-push hook; read-only work and throwaway spikes ship nothing and are exempt.)
 - No secrets in code, logs, or output — reference by name.
 - Irreversible/destructive ops (prod migrations, prod deploys) are not done from a session.
-- Stay in scope. The task's blast radius is the task, not a refactor tour.
+- Stay in scope: the task's blast radius is the task, not a refactor tour.
 
-## Deciding on your own vs. asking — derive, don't ask
+## Working a task
+Before you edit, know what "done" means and how you'll verify it. Prove a fix with a test that
+failed first; build a feature to a stated intent with a test that proves the new behavior.
+Smallest correct change, in one canonical place; check your diff against
+`.scaffold/rails/standards.md` before closeout. When a task is big enough to need structure,
+`cookbook/loop.md` has the full FRAME → WORK → REVIEW discipline.
 
-**Default: derive the answer** from what's already here — the standards, the codebase, the task
-intent — **act, and document the call** in your closeout. The PR review is where the human
-ratifies it, at the right altitude. Don't stop mid-flow to ask what the structure determines.
+## Derive, don't ask
+Default: derive the answer from the standards, the codebase, and the task intent — act, and
+record the call in your closeout log; the PR review is where the human ratifies it. Ask only at
+a true branch point: the choice needs intent/authority you don't hold, two paths are equally
+coherent, or it's irreversible/high blast-radius. When you ask, hand a **steer**: the named
+fork + your recommendation + the reason — never a blank question.
 
-**Ask the human ONLY at a true branch point:**
-- (a) the choice needs intent/authority you don't hold (product direction, priorities), or
-- (b) two paths are equally coherent and the structure won't break the tie, or
-- (c) it's irreversible / high blast-radius, so confirming is cheap insurance.
-
-When you ask, hand a **steer**: the named fork + your recommendation + the reason. Never a blank question.
-
-## Map
-
-All paths are from the **repo root** — everything lives under `.scaffold/`.
-
+## Map — all paths from the repo root
 | Path | What it is |
 |---|---|
-| `.scaffold/rails/standards.md` | This project's standards — the gates you enforce (each tagged `Check:` or `Judgment:`) |
-| `.scaffold/cookbook/orient.md` | The full session-boot procedure (BOOT summarizes; the cookbook owns the detail) |
-| `.scaffold/cookbook/closeout.md` | The full close-out procedure + the mechanical self-check |
-| `.scaffold/memory/STATE.md` | Living "where the project stands" — read first at ORIENT |
+| `.scaffold/rails/standards.md` | This project's standards — the gates on every diff |
+| `.scaffold/cookbook/orient.md` | Session-boot context: what exists, why it pays |
+| `.scaffold/cookbook/loop.md` | The per-task loop: FRAME → WORK → REVIEW |
+| `.scaffold/cookbook/closeout.md` | Close-out procedure + the mechanical gate |
+| `.scaffold/memory/STATE.md` | Living "where the project stands" — read first |
 | `.scaffold/memory/log/` | Dated session closeouts — append-only history |
-
-(Per-runtime enforcement — the Pi extension and Claude Code hooks — is installed machine-globally
-by the human via `scaffold setup`; you just work.)

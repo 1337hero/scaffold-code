@@ -30,7 +30,8 @@ bash .scaffold/cookbook/closeout-check.sh   # works from anywhere in the repo
 ```
 
 It diffs against the merge-base with the default branch, so STATE/log changes count whether
-committed or not.
+committed or not — and it passes untouched when no code changed, so a read-only session owes
+no ceremony.
 
 ## 4. Re-confirm the hard rails held
 Branch+PR (not main), no secrets, in scope, green. (A re-check of REVIEW, not a first look.)
