@@ -5,8 +5,14 @@ collapses to: reproduce → fix → verify.
 
 ## FRAME — before you edit, be able to state
 - **Shape:** fix / feature / review / investigation.
+- **Intent source:** the originating GitHub Issue number/link or direct user task and, when open,
+  the delivery PR.
+- **Accepted refinements:** none, or the PR review decisions/comments that change or clarify the
+  originating intent.
 - **Context loaded:** the STATE facts, rails, log entries, and code loci this depends on.
-- **Done means:** the test/proof or the deliverable that ends it.
+- **Done means:** the resulting observable acceptance criteria after accepted PR refinements,
+  and the test/proof or deliverable that ends it.
+- **Out of scope:** the origin's boundary, including adjacent behavior that will not change.
 - **Verification:** the cheapest checks that prove it.
 - **Branch point:** none, or the steer you need from the human.
 
@@ -22,6 +28,7 @@ the proof is a test that proves the new behavior. Scope to one coherent change.
 
 ## REVIEW — a real pass, not an attitude
 - Re-read `.scaffold/rails/standards.md` and grep your diff for each rule it names.
-- Compare the diff against your FRAME: does it match "done means" and the scope boundary?
+- Compare the diff against your FRAME and accepted PR refinements: does it match "done means"
+  and the scope boundary?
 - For non-trivial changes, hand the diff to a **fresh-context reviewer** (a subagent / new
   session / `/code-review`) — same-context self-review catches typos, not design drift.
