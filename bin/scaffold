@@ -3,7 +3,7 @@
 // Engine files (BOOT, cookbook) are stock and overwritten by `update`;
 // rails/ and memory/ are project-owned and never touched.
 // Adapters are NOT copied into projects — `scaffold setup` installs them
-// globally per machine (pi: ~/.pi/agent/extensions, Claude Code: ~/.claude/settings.json).
+// globally per machine (Pi extension, Claude Code hooks, and Codex hooks).
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -146,46 +146,75 @@ function setup() {
 
   // Claude Code: global hooks, guarded on .scaffold/ presence in the project
   const claudeDir = path.join(process.env.HOME, ".claude");
-  if (!fs.existsSync(claudeDir)) return console.log("claude: ~/.claude not found — skipped");
-  const settingsPath = path.join(claudeDir, "settings.json");
-  const settings = fs.existsSync(settingsPath)
-    ? JSON.parse(fs.readFileSync(settingsPath, "utf8"))
-    : {};
-  const guard = path.join(SRC, "adapters", "claude-code", "guard.js");
-  const guarded = (cmd) =>
-    `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]; then ${cmd}; fi`;
-  const wanted = {
-    // push protection is a git pre-push hook (scaffold init/update), not a PreToolUse parser
-    SessionStart: [{ hooks: [
-      { type: "command", command: guarded('cat "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md"') },
-    ] }],
-    Stop: [{ hooks: [{ type: "command", command: guarded(`node "${guard}"`) }] }],
-  };
-  settings.hooks = settings.hooks || {};
+  if (!fs.existsSync(claudeDir)) console.log("claude: ~/.claude not found — skipped");
+  else {
+    const settingsPath = path.join(claudeDir, "settings.json");
+    const settings = fs.existsSync(settingsPath)
+      ? JSON.parse(fs.readFileSync(settingsPath, "utf8"))
+      : {};
+    const guard = path.join(SRC, "adapters", "claude-code", "guard.js");
+    const guarded = (cmd) =>
+      `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]; then ${cmd}; fi`;
+    const wanted = {
+      // push protection is a git pre-push hook (scaffold init/update), not a PreToolUse parser
+      SessionStart: [{ hooks: [
+        { type: "command", command: guarded('cat "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md"') },
+      ] }],
+      Stop: [{ hooks: [{ type: "command", command: guarded(`node "${guard}"`) }] }],
+    };
+    const changed = mergeHooks(settings, wanted);
+    if (changed) {
+      if (fs.existsSync(settingsPath))
+        fs.copyFileSync(settingsPath, settingsPath + ".bak-scaffold");
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+      console.log(`claude: hooks merged into ${settingsPath} (backup: settings.json.bak-scaffold)`);
+    } else console.log("claude: hooks already current");
+  }
+
+  // Codex: global hooks, with activation and project-root discovery handled by the adapter
+  const codexDir = path.join(process.env.HOME, ".codex");
+  if (!fs.existsSync(codexDir)) console.log("codex: ~/.codex not found — skipped");
+  else {
+    const hooksPath = path.join(codexDir, "hooks.json");
+    const config = fs.existsSync(hooksPath)
+      ? JSON.parse(fs.readFileSync(hooksPath, "utf8"))
+      : {};
+    const guard = path.join(SRC, "adapters", "codex", "guard.js");
+    const command = `node "${guard}"`;
+    const wanted = {
+      SessionStart: [{ hooks: [{ type: "command", command, statusMessage: "Loading scaffold rails" }] }],
+      Stop: [{ hooks: [{ type: "command", command, timeout: 30 }] }],
+    };
+    const changed = mergeHooks(config, wanted);
+    if (changed) {
+      if (fs.existsSync(hooksPath)) fs.copyFileSync(hooksPath, hooksPath + ".bak-scaffold");
+      fs.writeFileSync(hooksPath, JSON.stringify(config, null, 2) + "\n");
+      console.log(`codex: hooks merged into ${hooksPath} (review them with /hooks)`);
+    } else console.log("codex: hooks already current");
+  }
+}
+
+function mergeHooks(config, wanted) {
+  config.hooks = config.hooks || {};
   let changed = false;
   for (const [event, entries] of Object.entries(wanted)) {
-    const existing = settings.hooks[event] || [];
+    const existing = config.hooks[event] || [];
     // idempotent + self-updating: drop any prior scaffold entry, then add the current one
-    const kept = existing.filter((e) => !JSON.stringify(e).includes(".scaffold/"));
-    settings.hooks[event] = [...kept, ...entries];
-    if (JSON.stringify(existing) !== JSON.stringify(settings.hooks[event])) changed = true;
+    const kept = existing.filter((entry) => !JSON.stringify(entry).includes(".scaffold/"));
+    config.hooks[event] = [...kept, ...entries];
+    if (JSON.stringify(existing) !== JSON.stringify(config.hooks[event])) changed = true;
   }
-  // retire scaffold entries from events we no longer use (e.g. the old PreToolUse push parser)
-  for (const [event, entries] of Object.entries(settings.hooks)) {
+  // retire scaffold entries from events we no longer use
+  for (const [event, entries] of Object.entries(config.hooks)) {
     if (event in wanted) continue;
-    const kept = entries.filter((e) => !JSON.stringify(e).includes(".scaffold/"));
+    const kept = entries.filter((entry) => !JSON.stringify(entry).includes(".scaffold/"));
     if (kept.length !== entries.length) {
       changed = true;
-      if (kept.length) settings.hooks[event] = kept;
-      else delete settings.hooks[event];
+      if (kept.length) config.hooks[event] = kept;
+      else delete config.hooks[event];
     }
   }
-  if (changed) {
-    if (fs.existsSync(settingsPath))
-      fs.copyFileSync(settingsPath, settingsPath + ".bak-scaffold");
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
-    console.log(`claude: hooks merged into ${settingsPath} (backup: settings.json.bak-scaffold)`);
-  } else console.log("claude: hooks already current");
+  return changed;
 }
 
 function die(msg) {
@@ -221,6 +250,6 @@ usage:
   scaffold init <dir>          set up .scaffold/ in a repo (engine + state templates + pre-push hook)
   scaffold update [<dir>|--all] refresh engine files + pre-push hook; never touches rails/ or memory/
   scaffold status [<dir>|--all] show drift against the canonical engine
-  scaffold setup               install machine-global adapters (pi + Claude Code hooks)
+  scaffold setup               install machine-global adapters (Pi + Claude Code + Codex hooks)
   scaffold list                registered projects`);
 }

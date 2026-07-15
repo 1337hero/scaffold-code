@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scaffold-code installer — curl -fsSL <raw url>/install.sh | bash
 # Clones (or updates) the canonical repo, puts `scaffold` on PATH, and installs
-# the machine-global adapters (pi extension + Claude Code hooks).
+# the machine-global adapters (Pi extension + Claude Code and Codex hooks).
 set -euo pipefail
 
 REPO_URL="${SCAFFOLD_REPO:-https://github.com/1337hero/scaffold-code.git}"

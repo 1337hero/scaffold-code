@@ -31,6 +31,16 @@ trusts the project; the global dir always loads.)
 - `agent_end` runs the closeout gate; on failure it steers the agent back once per stale
   stretch, warning the human on repeats
 
+## Codex
+Global `SessionStart` and `Stop` hooks are merged into `~/.codex/hooks.json`. The shared
+`codex/guard.js` discovers `.scaffold/` from the session working directory, so the hooks no-op
+outside scaffold repos and still work when Codex starts in a repo subdirectory.
+- `SessionStart` emits `BOOT.md` as additional developer context (the keystone)
+- `Stop` runs the closeout gate and prevents the turn from stopping while it fails
+
+Codex requires non-managed command hooks to be reviewed after installation or any update. Run
+`/hooks` in Codex and trust the scaffold hooks before expecting them to execute.
+
 ## Anything else (portable floor)
 No injection guarantee — point the agent at `.scaffold/BOOT.md` however the runtime allows.
 The pre-push hook and `closeout-check.sh` still hold: they travel with the repo and need no
