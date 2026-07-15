@@ -38,6 +38,7 @@ latest_log=$(ls .scaffold/memory/log/*.md 2>/dev/null | sed 's|.*/||' | sort | t
 [ -n "$latest_log" ] || fail "no log entry in .scaffold/memory/log/"
 [ "$latest_log" \< "$last_change" ] && fail "no log entry since the last code change ($last_change)"
 
-# secrets: added lines only; requires a quoted literal value so `apiKey: process.env.X` (reference by name) passes
-git diff "$base" | grep -E '^\+' | grep -iqE "(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*[\"'][A-Za-z0-9+/_-]{16,}" && fail "possible secret in diff"
+# secrets: added lines only; requires a quoted literal value so `apiKey: process.env.X` (reference by name)
+# passes, and the value must not start with "/" so URL paths like paymentToken: "/payment-token/X" pass
+git diff "$base" | grep -E '^\+' | grep -iqE "(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*[\"'][A-Za-z0-9+_-][A-Za-z0-9+/_-]{15,}" && fail "possible secret in diff"
 echo "OK: closeout floor satisfied"
