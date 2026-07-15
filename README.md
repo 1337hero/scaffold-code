@@ -49,7 +49,8 @@ boundary of reality — never by parsing what an agent says it's doing:
 - **Adapters (once per machine, `scaffold setup`)** carry no rail logic — they only inject
   `BOOT.md` at session start (the keystone) and relay the closeout gate's verdict at session
   end. Claude Code and Codex: `SessionStart` + `Stop` hooks. Pi: `before_agent_start` +
-  `agent_end`.
+  `agent_end`. opencode: a global plugin (`experimental.chat.system.transform` +
+  `session.idle`).
 
 Don't try to mechanize the judgment rails (derive-don't-ask, stay-in-scope) — that produces theater.
 
@@ -59,7 +60,8 @@ One-time per machine:
 curl -fsSL https://raw.githubusercontent.com/1337hero/scaffold-code/main/install.sh | bash
 ```
 That clones this repo to `~/.scaffold-code` (or uses an existing checkout), puts `scaffold` on
-PATH, and runs `scaffold setup` to install the Pi + Claude Code + Codex adapters globally.
+PATH, and runs `scaffold setup` to install the Pi + Claude Code + Codex + opencode adapters
+globally.
 Codex asks you to review non-managed command hooks after installation; run `/hooks` and trust
 the scaffold entries.
 

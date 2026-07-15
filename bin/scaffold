@@ -3,7 +3,8 @@
 // Engine files (BOOT, cookbook) are stock and overwritten by `update`;
 // rails/ and memory/ are project-owned and never touched.
 // Adapters are NOT copied into projects — `scaffold setup` installs them
-// globally per machine (Pi extension, Claude Code hooks, and Codex hooks).
+// globally per machine (Pi extension, Claude Code hooks, Codex hooks, and
+// an opencode plugin).
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -144,6 +145,18 @@ function setup() {
     console.log(`pi: installed ${extDir}/scaffold.ts`);
   } else console.log("pi: ~/.pi/agent not found — skipped");
 
+  // opencode: global plugin — loads for every project, no-ops without .scaffold/BOOT.md
+  const opencodeDir = path.join(process.env.HOME, ".config", "opencode");
+  if (fs.existsSync(opencodeDir)) {
+    const pluginDir = path.join(opencodeDir, "plugins");
+    fs.mkdirSync(pluginDir, { recursive: true });
+    fs.copyFileSync(
+      path.join(SRC, "adapters", "opencode", "scaffold.js"),
+      path.join(pluginDir, "scaffold.js"),
+    );
+    console.log(`opencode: installed ${pluginDir}/scaffold.js`);
+  } else console.log("opencode: ~/.config/opencode not found — skipped");
+
   // Claude Code: global hooks, guarded on .scaffold/ presence in the project
   const claudeDir = path.join(process.env.HOME, ".claude");
   if (!fs.existsSync(claudeDir)) console.log("claude: ~/.claude not found — skipped");
@@ -250,6 +263,6 @@ usage:
   scaffold init <dir>          set up .scaffold/ in a repo (engine + state templates + pre-push hook)
   scaffold update [<dir>|--all] refresh engine files + pre-push hook; never touches rails/ or memory/
   scaffold status [<dir>|--all] show drift against the canonical engine
-  scaffold setup               install machine-global adapters (Pi + Claude Code + Codex hooks)
+  scaffold setup               install machine-global adapters (Pi + Claude Code + Codex + opencode)
   scaffold list                registered projects`);
 }

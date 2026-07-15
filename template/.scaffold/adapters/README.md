@@ -41,6 +41,16 @@ outside scaffold repos and still work when Codex starts in a repo subdirectory.
 Codex requires non-managed command hooks to be reviewed after installation or any update. Run
 `/hooks` in Codex and trust the scaffold hooks before expecting them to execute.
 
+## opencode
+`opencode/scaffold.js` → `~/.config/opencode/plugins/` — a global opencode plugin, so it
+covers every scaffold repo at once. It discovers `.scaffold/` by walking up from the project
+directory and returns no hooks outside scaffold repos.
+- `experimental.chat.system.transform` appends `BOOT.md` to the system prompt (the keystone),
+  guarded against double-injection by the `scaffold-code — BOOT` marker
+- `session.idle` (via the `event` hook) runs the closeout gate; on failure it steers the agent
+  back once per stale stretch via a follow-up prompt, warning the human with a TUI toast on
+  repeats; subagent sessions are exempt
+
 ## Anything else (portable floor)
 No injection guarantee — point the agent at `.scaffold/BOOT.md` however the runtime allows.
 The pre-push hook and `closeout-check.sh` still hold: they travel with the repo and need no
