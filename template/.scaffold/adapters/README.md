@@ -6,11 +6,11 @@ loads at session start. That is all an adapter is.
 Enforcement does **not** live here. It lives where it can't be phrased around:
 - **Push protection** is a git `pre-push` hook (`.scaffold/hooks/pre-push`), installed into
   `.git/hooks/` by `scaffold init` / `scaffold update`. Runtime- and agent-agnostic; exempts
-  `.scaffold/`-only commits (a STATE roll must not cost a branch + PR); humans override with
+  `.scaffold/`-only memory maintenance; humans override with
   `SCAFFOLD_OFF=1`.
 - **Closeout** is an outcome gate: `cookbook/closeout-check.sh` passes when nothing shipped,
-  and fails loudly on code-on-default-branch, unchanged STATE, a stale log, or a possible
-  secret in the diff. Adapters merely *relay* its verdict at session end.
+  and fails loudly on code-on-default-branch, a stale log, or a possible secret in the diff.
+  Adapters merely *relay* its verdict at session end.
 
 **Adapters install once per machine — `scaffold setup` does all of the below.** They live only
 in this source repo and are never copied into projects; the presence of `.scaffold/` in a repo

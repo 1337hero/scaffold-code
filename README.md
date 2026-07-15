@@ -14,6 +14,7 @@ program** (pure-agent + cookbook-on-demand, after `disler/the-library`).
 ## Layout
 | Path | What it is |
 |---|---|
+| `template/.scaffold/` | Canonical deployed tree; nested so this source repo does not activate scaffold hooks. |
 | `BOOT.md` | Read first, every session. Hard rails + the two imperatives + derive-don't-ask. |
 | `rails/standards.md` | This project's standards — the gates the agent enforces. |
 | `cookbook/` | Procedures loaded on demand: orient, the per-task loop, closeout. |
@@ -40,11 +41,11 @@ Rails are read-and-trusted by default; where they can be mechanized, they're enf
 boundary of reality — never by parsing what an agent says it's doing:
 - **Push protection:** a git `pre-push` hook (`.scaffold/hooks/pre-push`), installed into
   `.git/hooks/` by `scaffold init`/`update`. Blocks any push to the default branch, from any
-  runtime, agent, or phrasing; `.scaffold/`-only commits (STATE rolls, log entries) are exempt;
+  runtime, agent, or phrasing; `.scaffold/`-only memory maintenance is exempt;
   humans override with `SCAFFOLD_OFF=1`.
 - **Closeout:** `cookbook/closeout-check.sh` — an outcome gate, portable to any shell-capable
   agent. Passes untouched when nothing shipped; fails loudly on code-on-default-branch,
-  unchanged STATE, a log entry older than the last code change, or a secret in the diff.
+  a log entry older than the last code change, or a secret in the diff.
 - **Adapters (once per machine, `scaffold setup`)** carry no rail logic — they only inject
   `BOOT.md` at session start (the keystone) and relay the closeout gate's verdict at session
   end. Claude Code: `SessionStart` + `Stop` hooks. Pi: `before_agent_start` + `agent_end`.
@@ -68,3 +69,7 @@ scaffold status [--all] # drift check against the canonical engine
 Engine files (`BOOT.md`, `cookbook/`) are stock and stamped with a `VERSION`; `rails/` and
 `memory/` are project-owned and never overwritten. **Engineering rails only** — client strategy
 and skill distribution are separate concerns.
+
+In this source repository, those files live below `template/.scaffold/`. `scaffold init` copies
+them to the target repository's root as `.scaffold/`; keeping the canonical copy nested prevents
+machine-global adapters from mistaking scaffold-code itself for a deployed project.

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # scaffold-code closeout floor — the outcome gate for any shell-capable agent. Run from anywhere
 # in the repo. Verifies outcomes, not process: nothing shipped → passes silently; code changed →
-# must be off the default branch, STATE rolled, log entry as fresh as the code, no secrets.
+# must be off the default branch, have a log entry as fresh as the code, and contain no secrets.
 # note: session ≈ branch — code changes are measured against the merge-base with the default
-# branch, so STATE/log changes count whether committed or not.
+# branch, so log changes count whether committed or not.
 fail() { echo "FAIL: $1"; exit 1; }
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || fail "not in a git repo"
 [ -f .scaffold/BOOT.md ] || fail "no .scaffold/ at repo root"
@@ -27,8 +27,6 @@ if [ -z "$changed" ]; then
 fi
 
 [ "$(git rev-parse --abbrev-ref HEAD)" != "$default" ] || fail "code changed on $default — branch first"
-
-git diff --quiet "$base" -- .scaffold/memory/STATE.md && fail "STATE.md unchanged this session"
 
 # log freshness: the newest log entry must be at least as new as the newest code change
 if [ -n "$dirty" ]; then

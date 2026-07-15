@@ -10,7 +10,9 @@ const crypto = require("crypto");
 const { execSync } = require("child_process");
 
 const HOME_REPO = path.resolve(fs.realpathSync(process.argv[1]), "..", "..");
-const SRC = path.join(HOME_REPO, ".scaffold");
+// Keep the canonical engine below template/ so this source repository does not activate the
+// runtime hooks intended for deployed projects. `copy` still installs it as <project>/.scaffold.
+const SRC = path.join(HOME_REPO, "template", ".scaffold");
 const ENGINE = [
   "BOOT.md",
   "cookbook/orient.md",
@@ -35,7 +37,7 @@ const sh = (cmd, cwd) => {
 };
 const version = () => {
   const hash = sh("git rev-parse --short HEAD", HOME_REPO) || "unknown";
-  const dirty = sh("git status --porcelain -- .scaffold bin", HOME_REPO) ? "-dirty" : "";
+  const dirty = sh("git status --porcelain -- template/.scaffold bin", HOME_REPO) ? "-dirty" : "";
   return `${hash}${dirty}`;
 };
 const fileHash = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");

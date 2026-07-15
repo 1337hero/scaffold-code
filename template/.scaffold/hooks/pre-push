@@ -20,7 +20,7 @@ while read -r _local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue   # deleting the remote branch — not a code push
   [ "$remote_sha" = "$zero" ] && continue  # first push of the default branch — nothing to PR against
   # closeout exemption: outgoing commits touching ONLY .scaffold/ (memory/log/rails) may land
-  # on the default branch directly — a STATE roll must not cost a branch + PR
+  # on the default branch directly — memory maintenance must not cost a branch + PR
   files=$(git diff --name-only "$remote_sha".."$local_sha" 2>/dev/null)
   if [ -n "$files" ] && ! echo "$files" | grep -qv '^\.scaffold/'; then
     continue
