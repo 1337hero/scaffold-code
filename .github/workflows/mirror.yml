@@ -1,0 +1,17 @@
+name: Mirror to Forgejo
+
+on: [push, delete]
+
+concurrency:
+  group: mirror
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror all branches and tags
+        run: |
+          git clone --mirror "https://github.com/${{ github.repository }}" repo
+          cd repo
+          git push --prune "https://x:${{ secrets.FORGEJO_TOKEN }}@git.1337hero.com/1337hero/scaffold-code.git" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
