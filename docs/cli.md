@@ -16,18 +16,18 @@ scaffold list                 print registered projects
 
 The commands treat two file sets differently (see [architecture](architecture.md)):
 
-- **Engine** (always overwritten): `BOOT.md`, `cookbook/orient.md`, `cookbook/loop.md`, `cookbook/closeout.md`, `cookbook/closeout-check.sh`, `hooks/pre-push`.
+- **Engine** (always overwritten): `BOOT.md`, `cookbook/orient.md`, `cookbook/loop.md`, `cookbook/closeout.md`, `cookbook/closeout-check.sh`, `hooks/pre-push`, `adapters/claude-code/guard.js`.
 - **State templates** (copied only if missing, never overwritten): `rails/standards.md`, `memory/STATE.md`, `memory/log/*.example`.
 
 ## scaffold init
 
-Creates `<dir>` if needed, runs `git init` if it is not a repo, and refuses to run anywhere but the repo root. Fails if `.scaffold/BOOT.md` already exists (use `update`). Then it copies engine files and state templates, installs the pre-push hook into `.git/hooks/`, writes the VERSION stamp, and registers the project.
+Creates `<dir>` if needed, runs `git init` if it is not a repo, and refuses to run anywhere but the repo root. Fails if `.scaffold/BOOT.md` already exists (use `update`). Then it copies engine files and state templates, installs the pre-push hook into `.git/hooks/`, merges the Claude Code hooks into the project's committed `.claude/settings.json` (see [adapters](adapters.md)), writes the VERSION stamp, and registers the project.
 
 If `.git/hooks/pre-push` already exists and does not contain the string `scaffold-code`, init leaves it alone and prints a warning; chain `.scaffold/hooks/pre-push` into your hook manually.
 
 ## scaffold update
 
-Overwrites engine files, fills in any missing state templates, reinstalls the pre-push hook, restamps VERSION, and re-registers the project. It never overwrites `rails/` or `memory/` content that exists. Fails if the project has no `.scaffold/`. Warns if it finds a legacy `.scaffold/adapters/` copy in the project (adapters are machine-global now; delete it).
+Overwrites engine files (including the vendored Claude Code guard), fills in any missing state templates, reinstalls the pre-push hook, refreshes the project's committed `.claude/settings.json` hooks, restamps VERSION, and re-registers the project. It never overwrites `rails/` or `memory/` content that exists. Fails if the project has no `.scaffold/`.
 
 ## scaffold status
 

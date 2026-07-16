@@ -2,16 +2,18 @@
 
 An adapter does exactly two things: inject `.scaffold/BOOT.md` at session start (the **keystone**) and relay the [closeout gate](closeout-gate.md)'s verdict at session end. No rail logic lives in any adapter; enforcement stays in the git pre-push hook and `closeout-check.sh`, which travel with the repo (see [architecture](architecture.md)).
 
-Adapters install once per machine with `scaffold setup` and are never copied into projects. Each activates only when the project contains `.scaffold/BOOT.md`, and each honors `SCAFFOLD_OFF=1` by doing nothing at all. Sources live in `template/.scaffold/adapters/` in the canonical repo.
+Adapters install once per machine with `scaffold setup`. Each activates only when the project contains `.scaffold/BOOT.md`, and each honors `SCAFFOLD_OFF=1` by doing nothing at all. Sources live in `template/.scaffold/adapters/` in the canonical repo. Claude Code is the exception to machine-only: its adapter also travels with the repo, so collaborators who never ran `scaffold setup` still get the rails.
 
 ## Claude Code
 
-Installed as global hooks merged into `~/.claude/settings.json` (the old file is backed up as `settings.json.bak-scaffold`). Both hook commands are wrapped in a shell guard, `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]`, so they no-op outside scaffold repos.
+Two layers, and exactly one fires per session:
+
+**Machine-global** (`scaffold setup`): hooks merged into `~/.claude/settings.json` (the old file is backed up as `settings.json.bak-scaffold`). Both hook commands are wrapped in a shell guard, `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]`, so they no-op outside scaffold repos.
 
 - **SessionStart**: `cat`s BOOT.md into the session context.
-- **Stop**: runs `adapters/claude-code/guard.js` from the canonical checkout. It runs the gate in the session's cwd; on failure it emits `{"decision": "block", "reason": "scaffold closeout gate: FAIL: ..."}`, which blocks the stop until closeout is done. It exits silently when `stop_hook_active` is set, so a blocked stop cannot loop forever.
+- **Stop**: runs the project's vendored `.scaffold/adapters/claude-code/guard.js` (falling back to the canonical checkout's copy for repos that predate vendoring). It runs the gate in the session's cwd; on failure it emits `{"decision": "block", "reason": "scaffold closeout gate: FAIL: ..."}`, which blocks the stop until closeout is done. It exits silently when `stop_hook_active` is set, so a blocked stop cannot loop forever.
 
-`adapters/claude-code/settings.json` remains as a per-project variant for repos that want in-repo enforcement for collaborators; it references guard.js inside the project rather than the global checkout.
+**In-repo** (`scaffold init`/`update`): guard.js is vendored at `.scaffold/adapters/claude-code/guard.js` and the same SessionStart/Stop hooks are merged into the project's committed `.claude/settings.json`. Each project hook first checks `~/.claude/settings.json` for a scaffold install and defers to it, so machines with the global adapter never double-fire; everywhere else the repo is self-sufficient. Claude Code prompts collaborators once to trust the project hooks.
 
 ## Codex
 
