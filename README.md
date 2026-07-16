@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.jpg" alt="Scaffold Code" width="360">
+</p>
+
 # scaffold-code
 
 Operating rails for an AI coding agent working a single project. Drop a `.scaffold/` directory
