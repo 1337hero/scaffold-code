@@ -9,7 +9,7 @@ Every file in a deployed `.scaffold/` belongs to one of two classes, and the spl
 - **Engine** files are stock. `scaffold update` overwrites them freely: `BOOT.md`, `cookbook/orient.md`, `cookbook/loop.md`, `cookbook/closeout.md`, `cookbook/closeout-check.sh`, and `hooks/pre-push`.
 - **State** files belong to the project. They are copied once as templates and never overwritten: `rails/standards.md` (the project's enforceable standards) and `memory/` (the `STATE.md` snapshot plus the `log/` of per-intent closeouts).
 
-**Adapters** are the third piece, and they live nowhere in the project. `scaffold setup` installs them machine-globally per runtime (Claude Code, Codex, Pi, opencode). The presence of `.scaffold/BOOT.md` in a repo is what activates them; everywhere else they no-op. See [adapters](adapters.md).
+**Adapters** are the third piece. `scaffold setup` installs them machine-globally per runtime (Claude Code, Codex, Pi, opencode); the Claude Code adapter is additionally vendored into each project so the repo carries its own rails for collaborators without a global install. The presence of `.scaffold/BOOT.md` in a repo is what activates them; everywhere else they no-op. See [adapters](adapters.md).
 
 ```
 project/

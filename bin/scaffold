@@ -2,9 +2,11 @@
 // scaffold — deploy/update the scaffold-code engine into project repos.
 // Engine files (BOOT, cookbook) are stock and overwritten by `update`;
 // rails/ and memory/ are project-owned and never touched.
-// Adapters are NOT copied into projects — `scaffold setup` installs them
-// globally per machine (Pi extension, Claude Code hooks, Codex hooks, and
-// an opencode plugin).
+// Adapters install machine-globally via `scaffold setup` (Pi extension,
+// Claude Code hooks, Codex hooks, an opencode plugin). The Claude Code
+// adapter is ALSO vendored into each project (guard.js + committed
+// .claude/settings.json) so collaborators without a global install get the
+// rails; the project hooks defer to the global install when one exists.
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -21,6 +23,7 @@ const ENGINE = [
   "cookbook/closeout.md",
   "cookbook/closeout-check.sh",
   "hooks/pre-push",
+  "adapters/claude-code/guard.js",
 ];
 const STATE_TEMPLATES = [
   "rails/standards.md",
@@ -76,6 +79,30 @@ function installGitHook(dir) {
   fs.chmodSync(dest, 0o755);
 }
 
+// Portable Claude Code adapter: committed project settings that fire the vendored
+// guard/BOOT only when no machine-global install (`scaffold setup`) is present.
+function installClaudeProjectSettings(dir) {
+  const deferToGlobal = `grep -qsF '.scaffold/BOOT.md' "$HOME/.claude/settings.json" || `;
+  const wanted = {
+    SessionStart: [{ hooks: [
+      { type: "command", command: deferToGlobal + 'cat "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md"' },
+    ] }],
+    Stop: [{ hooks: [
+      { type: "command", command: deferToGlobal + 'node "$CLAUDE_PROJECT_DIR/.scaffold/adapters/claude-code/guard.js"' },
+    ] }],
+  };
+  const claudeDir = path.join(dir, ".claude");
+  const settingsPath = path.join(claudeDir, "settings.json");
+  const settings = fs.existsSync(settingsPath)
+    ? JSON.parse(fs.readFileSync(settingsPath, "utf8"))
+    : {};
+  if (mergeHooks(settings, wanted)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+    console.log(`claude: project hooks written to ${settingsPath} — commit it`);
+  }
+}
+
 const stamp = (dest) =>
   fs.writeFileSync(
     path.join(dest, ".scaffold", "VERSION"),
@@ -99,6 +126,7 @@ function init(dir) {
   for (const f of ENGINE) copy(f, dir, true);
   for (const f of STATE_TEMPLATES) copy(f, dir, false);
   installGitHook(dir);
+  installClaudeProjectSettings(dir);
   stamp(dir);
   register(dir);
   console.log(`initialized ${dir}/.scaffold (${version()})`);
@@ -111,13 +139,10 @@ function update(dir) {
   for (const f of ENGINE) copy(f, dir, true);
   for (const f of STATE_TEMPLATES) copy(f, dir, false); // fill gaps, never overwrite
   installGitHook(dir);
+  installClaudeProjectSettings(dir);
   stamp(dir);
   register(dir);
   console.log(`updated ${dir}/.scaffold engine (${version()})`);
-  if (fs.existsSync(path.join(dir, ".scaffold", "adapters")))
-    console.log(
-      "warn: legacy .scaffold/adapters/ copy in project — adapters are machine-global now (`scaffold setup`); safe to delete",
-    );
 }
 
 function status(dir) {
@@ -173,7 +198,11 @@ function setup() {
       SessionStart: [{ hooks: [
         { type: "command", command: guarded('cat "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md"') },
       ] }],
-      Stop: [{ hooks: [{ type: "command", command: guarded(`node "${guard}"`) }] }],
+      // prefer the project's vendored guard (kept current by `scaffold update`),
+      // fall back to the canonical checkout for repos that predate vendoring
+      Stop: [{ hooks: [{ type: "command", command: guarded(
+        `g="$CLAUDE_PROJECT_DIR/.scaffold/adapters/claude-code/guard.js"; [ -f "$g" ] || g="${guard}"; node "$g"`,
+      ) }] }],
     };
     const changed = mergeHooks(settings, wanted);
     if (changed) {
