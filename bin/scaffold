@@ -165,7 +165,7 @@ function setup() {
     const settings = fs.existsSync(settingsPath)
       ? JSON.parse(fs.readFileSync(settingsPath, "utf8"))
       : {};
-    const guard = path.join(SRC, "adapters", "claude-code", "guard.js");
+    const guard = path.join(SRC, "adapters", "claude-code", "guard.cjs");
     const guarded = (cmd) =>
       `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]; then ${cmd}; fi`;
     const wanted = {
@@ -192,7 +192,7 @@ function setup() {
     const config = fs.existsSync(hooksPath)
       ? JSON.parse(fs.readFileSync(hooksPath, "utf8"))
       : {};
-    const guard = path.join(SRC, "adapters", "codex", "guard.js");
+    const guard = path.join(SRC, "adapters", "codex", "guard.cjs");
     const command = `node "${guard}"`;
     const wanted = {
       SessionStart: [{ hooks: [{ type: "command", command, statusMessage: "Loading scaffold rails" }] }],

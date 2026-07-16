@@ -21,7 +21,7 @@ Global hooks in `~/.claude/settings.json`, each guarded on `$CLAUDE_PROJECT_DIR/
 existing (no-ops everywhere else). `claude-code/settings.json` remains as a per-project variant
 if a repo needs in-repo enforcement for collaborators.
 - `SessionStart` injects `BOOT.md` (the keystone)
-- `Stop` runs `guard.js`, which runs the closeout gate and blocks stopping while it fails
+- `Stop` runs `guard.cjs`, which runs the closeout gate and blocks stopping while it fails
 
 ## Pi (pi.dev)
 `pi/scaffold.ts` → `~/.pi/agent/extensions/` — covers every scaffold repo at once. (Prefer
@@ -33,7 +33,7 @@ trusts the project; the global dir always loads.)
 
 ## Codex
 Global `SessionStart` and `Stop` hooks are merged into `~/.codex/hooks.json`. The shared
-`codex/guard.js` discovers `.scaffold/` from the session working directory, so the hooks no-op
+`codex/guard.cjs` discovers `.scaffold/` from the session working directory, so the hooks no-op
 outside scaffold repos and still work when Codex starts in a repo subdirectory.
 - `SessionStart` emits `BOOT.md` as additional developer context (the keystone)
 - `Stop` runs the closeout gate and prevents the turn from stopping while it fails

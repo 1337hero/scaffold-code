@@ -9,13 +9,13 @@ Adapters install once per machine with `scaffold setup` and are never copied int
 Installed as global hooks merged into `~/.claude/settings.json` (the old file is backed up as `settings.json.bak-scaffold`). Both hook commands are wrapped in a shell guard, `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]`, so they no-op outside scaffold repos.
 
 - **SessionStart**: `cat`s BOOT.md into the session context.
-- **Stop**: runs `adapters/claude-code/guard.js` from the canonical checkout. It runs the gate in the session's cwd; on failure it emits `{"decision": "block", "reason": "scaffold closeout gate: FAIL: ..."}`, which blocks the stop until closeout is done. It exits silently when `stop_hook_active` is set, so a blocked stop cannot loop forever.
+- **Stop**: runs `adapters/claude-code/guard.cjs` from the canonical checkout. It runs the gate in the session's cwd; on failure it emits `{"decision": "block", "reason": "scaffold closeout gate: FAIL: ..."}`, which blocks the stop until closeout is done. It exits silently when `stop_hook_active` is set, so a blocked stop cannot loop forever.
 
-`adapters/claude-code/settings.json` remains as a per-project variant for repos that want in-repo enforcement for collaborators; it references guard.js inside the project rather than the global checkout.
+`adapters/claude-code/settings.json` remains as a per-project variant for repos that want in-repo enforcement for collaborators; it references guard.cjs inside the project rather than the global checkout.
 
 ## Codex
 
-Installed as SessionStart and Stop hooks merged into `~/.codex/hooks.json` (backup: `hooks.json.bak-scaffold`). One script, `adapters/codex/guard.js`, handles both events; it discovers the scaffold root by walking up from the hook's `cwd`, so it works when Codex starts in a subdirectory and no-ops outside scaffold repos.
+Installed as SessionStart and Stop hooks merged into `~/.codex/hooks.json` (backup: `hooks.json.bak-scaffold`). One script, `adapters/codex/guard.cjs`, handles both events; it discovers the scaffold root by walking up from the hook's `cwd`, so it works when Codex starts in a subdirectory and no-ops outside scaffold repos.
 
 - **SessionStart**: prints BOOT.md to stdout, which Codex takes as additional developer context.
 - **Stop**: runs the gate at the discovered root; on failure it emits `{"continue": false, "stopReason": ..., "systemMessage": ...}`, preventing the turn from ending.
