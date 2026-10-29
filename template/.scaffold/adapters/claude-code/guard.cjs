@@ -17,7 +17,10 @@ process.stdin.on("end", () => {
   if (hook.hook_event_name !== "Stop" || hook.stop_hook_active) process.exit(0);
   const cwd = hook.cwd || process.cwd();
   try {
-    execSync("bash .scaffold/cookbook/closeout-check.sh", { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    execSync("bash .scaffold/cookbook/closeout-check.sh --if-changed", {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
   } catch (e) {
     const verdict = (e.stdout ? e.stdout.toString().trim() : "") || "closeout check failed";
     console.log(

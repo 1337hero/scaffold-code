@@ -29,7 +29,7 @@ export default function (pi: ExtensionAPI) {
     if (!isScaffoldRepo(ctx.cwd)) return;
     let verdict = "";
     try {
-      execSync("bash .scaffold/cookbook/closeout-check.sh", {
+      execSync("bash .scaffold/cookbook/closeout-check.sh --if-changed", {
         cwd: ctx.cwd,
         stdio: ["ignore", "pipe", "pipe"],
       });

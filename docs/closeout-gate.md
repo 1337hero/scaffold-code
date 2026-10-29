@@ -20,7 +20,7 @@ A read-only session owes no ceremony: when nothing shipped, the gate passes unto
 
 The gate treats session ≈ branch. It resolves the default branch from `origin/HEAD` (falling back to `main`), finds the merge-base with `HEAD`, and defines **code changes** as the branch diff against that base plus dirty and untracked paths, excluding everything under `.scaffold/`.
 
-It **passes** (exit 0) when there are no code changes, printing `OK: no code changes — closeout floor not required`, or when all three conditions below hold, printing `OK: closeout floor satisfied`.
+It **passes** (exit 0) when there are no code changes, printing `OK: no code changes — closeout floor not required`; when run with `--if-changed` and the repo is in the same state as the last time the gate spoke, printing `OK: repo unchanged since the gate last spoke — nothing to close out`; or when all three conditions below hold, printing `OK: closeout floor satisfied`.
 
 It **fails** (exit 1) with `FAIL: <reason>` on stdout when any of these is true:
 
@@ -48,6 +48,8 @@ Exit code 0 means pass; non-zero means fail, with a single human-readable `FAIL:
 - **opencode**: on first failure per session, the verdict is prompted back into the session; on repeats, the human gets a TUI toast. Subagent sessions are exempt.
 
 The nudge-once designs (Pi, opencode) prevent an agent that cannot satisfy the gate from looping; the block designs (Claude Code, Codex) rely on their runtimes' own loop protection (Claude Code's `stop_hook_active`, Codex's turn model).
+
+Every adapter runs the gate as `closeout-check.sh --if-changed`. In that mode the gate records the repo state it last reported — HEAD, the uncommitted diff, and the content hash of every untracked-but-not-ignored file, hashed together into `.git/scaffold-gate` — and passes quietly on an identical state. So it speaks **once per distinct repo state**: a session that changes nothing — discussing, planning, reviewing — costs no tokens and demands no ceremony. Any edit, tracked or untracked, or any commit re-arms it. Plain `closeout-check.sh` ignores that record and always reports the truth.
 
 Note the escape hatch lives in the relays, not the gate: the pre-push hook and every adapter honor `SCAFFOLD_OFF=1`, but running `closeout-check.sh` directly always reports the truth.
 

@@ -65,7 +65,8 @@ boundary of reality, never by parsing what an agent says it is doing:
 - **Closeout gate.** `cookbook/closeout-check.sh` passes untouched when nothing shipped and
   fails loudly on code sitting on the default branch, a log entry older than the last code
   change, or a secret in the diff. Adapters relay its verdict at session end and block or
-  nudge the agent until closeout is done.
+  nudge the agent until closeout is done — once per distinct repo state, so read-only sessions
+  stay silent.
 - **Escape hatch.** `SCAFFOLD_OFF=1` turns everything off for humans.
 
 Judgment rails (derive-don't-ask, stay-in-scope) are deliberately not mechanized; that
