@@ -4,6 +4,8 @@ An adapter does exactly two things: inject `.scaffold/BOOT.md` at session start 
 
 Adapters install once per machine with `scaffold setup` and are never copied into projects. Each activates only when the project contains `.scaffold/BOOT.md`, and each honors `SCAFFOLD_OFF=1` by doing nothing at all. Sources live in `template/.scaffold/adapters/` in the canonical repo.
 
+To update adapters after pulling a new release, rerun `scaffold setup` (or the curl installer). `scaffold update` refreshes project engine files only, never adapters.
+
 ## Claude Code
 
 Installed as global hooks merged into `~/.claude/settings.json` (the old file is backed up as `settings.json.bak-scaffold`). Both hook commands are wrapped in a shell guard, `if [ -f "$CLAUDE_PROJECT_DIR/.scaffold/BOOT.md" ]`, so they no-op outside scaffold repos.
