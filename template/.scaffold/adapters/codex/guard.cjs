@@ -37,7 +37,7 @@ process.stdin.on("end", () => {
 
   if (hook.hook_event_name !== "Stop") process.exit(0);
   try {
-    execFileSync("bash", [".scaffold/cookbook/closeout-check.sh"], {
+    execFileSync("bash", [".scaffold/cookbook/closeout-check.sh", "--if-changed"], {
       cwd: root,
       stdio: ["ignore", "pipe", "pipe"],
     });

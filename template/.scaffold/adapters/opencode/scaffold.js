@@ -37,7 +37,7 @@ export const Scaffold = async ({ client, directory, worktree }) => {
       if (!session.data || session.data.parentID) return; // gate speaks to top-level sessions only
       let verdict = "";
       try {
-        execFileSync("bash", [".scaffold/cookbook/closeout-check.sh"], {
+        execFileSync("bash", [".scaffold/cookbook/closeout-check.sh", "--if-changed"], {
           cwd: root,
           stdio: ["ignore", "pipe", "pipe"],
         });
