@@ -97,7 +97,17 @@ scaffold status          # drift check against the canonical engine (--all for e
 scaffold update          # refresh engine files after pulling a new scaffold-code version
 ```
 
-`update` never touches `rails/` or `memory/`; your standards and history are safe. To pick up new scaffold-code releases, `git pull` in `~/.scaffold-code` (or rerun the curl installer), then `scaffold update --all`.
+`update` never touches `rails/` or `memory/`; your standards and history are safe.
+
+To pick up a new scaffold-code release, refresh both the machine-global adapters and each project's engine:
+
+```bash
+git -C ~/.scaffold-code pull   # or your canonical checkout, wherever ~/.local/bin/scaffold points
+scaffold setup                 # refresh adapters (update does NOT touch them)
+scaffold update --all          # refresh engine files in every registered project
+```
+
+Rerunning the curl installer covers the first two steps. If you use Codex, re-trust the scaffold hooks in `/hooks` afterward.
 
 To bypass everything as a human, set the escape hatch:
 
